@@ -12,57 +12,90 @@ repositories {
     mavenCentral()
 }
 
+def versionCodeBuilder = { api, screen, app -> Integer.parseInt(sprintf("%02d%02d%02d", [ api, screen, app ])) }
+
 android {
+    // Increment this to create a new build version. This overrides the value in AndroidManifest.xml
+    def appCodeVersion = 1
     compileSdkVersion 18
     buildToolsVersion "18.0.1"
+    // Default build code for main app - screen sizes 3 & 4
 
     defaultConfig {
+        versionName "1.0.0"
         minSdkVersion 7
         targetSdkVersion 16
+        versionCode versionCodeBuilder(minSdkVersion, 34, appCodeVersion)
+    }
+
+    productFlavors {
+        'default' {
+        }
+        'lite' {
+            versionCode = versionCodeBuilder(defaultConfig.minSdkVersion, 12, appCodeVersion)
+        }
+    }
+    sourceSets {
+        android.sourceSets.lite {
+            res.srcDirs = ['src/main/res_lite']
+        }
     }
 }
+
+android.applicationVariants.all { variant ->
+    File out = variant.outputFile
+    variant.outputFile = file(out.toString().replace('.apk', ".${android.defaultConfig.versionName}.apk"))
+}
+
+// set some basic project properties for use later
+project.ext.sourcePhotosDir = file('assets/source_photos')
 
 dependencies {
     compile 'com.android.support:support-v4:13.0.+'
 }
 
-task(resizePhotos) {
-    // Iterate through source files, for each:
+task resizePhotos {
     // produce a hdpi/xhdpi png - 150 dpi
-    // produce a ldpi/mdpi png - 300 dpi
-    // output pngs to proper resource folder
-    // UselessPuffin/src/main/res/photos/
-    // TODO: output the count of input images for the project to use
-    def sizeMap = [ 'mdpi': [ 'px': 600 ], 'hdpi': [ 'px': 2100 ] ]
-    FileTree photos = fileTree(dir: 'src/main/res/photos')
-    File resFolder = file('src/main/res')
-    String cmdLine
-    photos.include('**/*.jpg')
-    photos.include('**/*.png')
-    int total = photos.files.size() * sizeMap.keySet().size()
-    int current =  1
-    photos.eachWithIndex { File file, num ->
-        sizeMap.each { type, opts ->
-            println "Resizing source photo $current/$total\r"
-            logger.debug "Preparing $type for $file"
-            cmdLine = sprintf("convert -resize ${opts.get('px')}> %s %s/drawable-$type/%02d.png", [ file.absolutePath, resFolder.absolutePath, num ])
+    // produce a ldpi/mdpi png in the default resource folder 300 dpi
+    // TODO: output the count of input images for the project to use?
+    def sizeMap = [ 'lite': [ 'folder': 'res_lite', 'px': 600 ], 'default': [ 'folder': 'res', 'px': 2100 ] ]
+    FileTree photos = fileTree(dir: sourcePhotosDir).include('**/*.jpg').include('**/*.png')
+
+    // closure for iterating over inputs/outputs
+    def eachOutputFile = { cl ->
+        photos.eachWithIndex { File file, num ->
+            sizeMap.each { type, opts ->
+                File outFile = project.file(sprintf("src/main/%s/drawable/photo_%02d.png", [ opts['folder'], num ]))
+                cl( file, outFile, type, opts )
+            }
+        }
+    }
+
+    // Set up task inputs/outputs
+    inputs.files photos.files
+    def outFiles = []
+    eachOutputFile { a, outfile, t, o -> outFiles << outfile }
+    outputs.files files(outFiles)
+
+    doLast {
+        int total = outFiles.size()
+        int current =  1
+        eachOutputFile { File inFile, File outFile, type, opts ->
+            logger.lifecycle "Resizing source photo $current/$total\r"
+            logger.debug "Preparing $type for $inFile"
+            if (!outFile.getParentFile().exists()) {
+                outFile.getParentFile().mkdirs()
+            }
+            String cmdLine = sprintf("convert -resize ${opts.get('px')}> %s %s", [ inFile.absolutePath, outFile.absolutePath ])
             logger.debug cmdLine
             Process proc = cmdLine.execute()
             proc.err.eachLine { line -> logger.info line }
-            proc.waitFor()
-            if ( proc.exitValue() != 0 ) {
+            if ( proc.waitFor() != 0 ) {
                 throw new RuntimeException("Imagemagick convert failed")
             }
             current++
         }
+
     }
 }
 
-task(removeSourcePhotos) {
-    // Remove the photos dir to exclude it from the build
-    // raise exception of dir is modified in git
-}
-
-task(restoreSourcePhotos) {
-
-}
