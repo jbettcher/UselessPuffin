@@ -49,6 +49,7 @@ android.applicationVariants.all { variant ->
 
 // set some basic project properties for use later
 project.ext.sourcePhotosDir = file('assets/source_photos')
+project.ext.largeResources = [ 'hdpi', 'xhdpi', 'xxhdpi' ]
 
 dependencies {
     compile 'com.android.support:support-v4:13.0.+'
@@ -99,3 +100,68 @@ task resizePhotos {
     }
 }
 
+def verifyGitUnmodified(path) {
+    runCommand("git diff-index --quiet HEAD -- $path", false)
+}
+
+def stripResources(List<String> res) {
+    res.each { String type ->
+        File dir = project.file("src/main/res/drawable-$type")
+        if ( dir.exists() ) {
+            if (!verifyGitUnmodified(dir)) throw new IllegalArgumentException("Git resources modified in $dir. Stash or commit your changes first.")
+            logger.debug("Pruning $type resources")
+            runCommand "rm -r $dir"
+        }
+    }
+}
+
+def restoreResources(List<String> res) {
+    res.each { String type ->
+        File dir = project.file("src/main/res/drawable-$type")
+        runCommand "git reset HEAD $dir"
+        runCommand "git checkout $dir"
+    }
+}
+
+def runCommand(String cmd, boolean abortOnError=true) {
+    logger.debug("Executing $cmd")
+    Process proc = cmd.execute()
+    proc.err.eachLine { line -> logger.info(line) }
+    int exitCode = proc.waitFor()
+    if ( exitCode == 0 ) {
+        return true
+    }
+    else if (abortOnError) {
+        throw new IllegalArgumentException("Command $cmd failed with exit code $exitCode")
+    }
+    else {
+        return false
+    }
+}
+
+def prepareResourceExclusions(String flavor) {
+    switch (flavor.toLowerCase()) {
+        case 'lite':
+            stripResources largeResources
+            break
+        default:
+            restoreResources largeResources
+    }
+}
+
+/*
+Gradle doesn't really have a good way of excluding resources from the default build for a particular
+build flavor. This adds a task to execute before all of the mergeResources tasks to prune any
+extra resources before the build starts.
+*/
+gradle.taskGraph.addTaskExecutionGraphListener(
+    [graphPopulated: { graph ->
+        def p = ~/merge(Default|Lite).*Resources/
+        graph.getAllTasks().each { Task task ->
+            def matcher = p.matcher(task.name)
+            if (matcher.find()) {
+                task.doFirst { prepareResourceExclusions(matcher[0][1]) }
+            }
+        }
+    }] as TaskExecutionGraphListener
+)
