@@ -1,4 +1,5 @@
 .gradle/
+.DS_Store
 build/
 bin/
 .idea
@@ -6,3 +7,4 @@ local.properties
 *.bak
 # Generated files are ignored
 gen/
+UselessPuffin/src/main/res/drawable-*/[0-9][0-9].png

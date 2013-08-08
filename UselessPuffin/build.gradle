@@ -25,3 +25,44 @@ android {
 dependencies {
     compile 'com.android.support:support-v4:13.0.+'
 }
+
+task(resizePhotos) {
+    // Iterate through source files, for each:
+    // produce a hdpi/xhdpi png - 150 dpi
+    // produce a ldpi/mdpi png - 300 dpi
+    // output pngs to proper resource folder
+    // UselessPuffin/src/main/res/photos/
+    // TODO: output the count of input images for the project to use
+    def sizeMap = [ 'mdpi': [ 'px': 600 ], 'hdpi': [ 'px': 2100 ] ]
+    FileTree photos = fileTree(dir: 'src/main/res/photos')
+    File resFolder = file('src/main/res')
+    String cmdLine
+    photos.include('**/*.jpg')
+    photos.include('**/*.png')
+    int total = photos.files.size() * sizeMap.keySet().size()
+    int current =  1
+    photos.eachWithIndex { File file, num ->
+        sizeMap.each { type, opts ->
+            println "Resizing source photo $current/$total\r"
+            logger.debug "Preparing $type for $file"
+            cmdLine = sprintf("convert -resize ${opts.get('px')}> %s %s/drawable-$type/%02d.png", [ file.absolutePath, resFolder.absolutePath, num ])
+            logger.debug cmdLine
+            Process proc = cmdLine.execute()
+            proc.err.eachLine { line -> logger.info line }
+            proc.waitFor()
+            if ( proc.exitValue() != 0 ) {
+                throw new RuntimeException("Imagemagick convert failed")
+            }
+            current++
+        }
+    }
+}
+
+task(removeSourcePhotos) {
+    // Remove the photos dir to exclude it from the build
+    // raise exception of dir is modified in git
+}
+
+task(restoreSourcePhotos) {
+
+}
