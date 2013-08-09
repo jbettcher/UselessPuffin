@@ -87,13 +87,8 @@ task resizePhotos {
             if (!outFile.getParentFile().exists()) {
                 outFile.getParentFile().mkdirs()
             }
-            String cmdLine = sprintf("convert -resize ${opts.get('px')}> %s %s", [ inFile.absolutePath, outFile.absolutePath ])
-            logger.debug cmdLine
-            Process proc = cmdLine.execute()
-            proc.err.eachLine { line -> logger.info line }
-            if ( proc.waitFor() != 0 ) {
-                throw new RuntimeException("Imagemagick convert failed")
-            }
+            // Imagemagick dependency
+            runCommand sprintf("convert -resize ${opts.get('px')}> %s %s", [ inFile.absolutePath, outFile.absolutePath ])
             current++
         }
 
