@@ -28,6 +28,24 @@ android {
         versionCode versionCodeBuilder(minSdkVersion, 34, appCodeVersion)
     }
 
+    signingConfigs {
+        release {
+            storeFile file("../android4all.keystore")
+            keyAlias "android4allkey"
+            storePassword android4AllStorePassword
+            keyPassword android4AllStorePassword
+        }
+
+    }
+
+    buildTypes {
+        release {
+            runProguard true
+            proguardFile getDefaultProguardFile('proguard-android.txt')
+            signingConfig signingConfigs.release
+        }
+    }
+
     productFlavors {
         'default' {
         }
@@ -40,6 +58,7 @@ android {
             //res.srcDirs = ['src/main/res_lite']
         }
     }
+
 }
 
 
