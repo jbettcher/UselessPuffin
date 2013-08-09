@@ -1,19 +1,16 @@
 package com.android4all.uselesspuffin;
 
 import android.content.res.Configuration;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.app.Activity;
 import android.view.Menu;
 import android.view.View;
 import android.widget.ImageView;
-
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 
 public class MainActivity extends Activity {
-    private ArrayList<String> photos = new ArrayList<String>();
+    private final ArrayList<String> photos = new ArrayList<String>();
     private ImageView mainImage;
     private String currentPhoto;
 
