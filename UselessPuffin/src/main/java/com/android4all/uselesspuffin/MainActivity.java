@@ -1,5 +1,6 @@
 package com.android4all.uselesspuffin;
 
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
@@ -44,9 +45,31 @@ public class MainActivity extends Activity {
            }
         }
 
-        loadPhoto(photos.get(0));
+        if ( savedInstanceState != null ) {
+            currentPhoto = savedInstanceState.getString("currentPhoto");
+            if ( photos.indexOf(currentPhoto) < 0 ) {
+                currentPhoto = null;
+            }
+        }
+        if ( currentPhoto == null ) currentPhoto = photos.get(0);
     }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if ( currentPhoto != null ) loadPhoto(currentPhoto);
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putString("currentPhoto", currentPhoto);
+        super.onSaveInstanceState(outState);
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -55,9 +78,17 @@ public class MainActivity extends Activity {
         return true;
     }
 
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        if (currentPhoto != null) loadPhoto(currentPhoto);
+        super.onConfigurationChanged(newConfig);
+    }
+
     private void loadPhoto(String photoName) {
         try {
-            loadPhotoFromResource(R.drawable.class.getField(photoName).getInt(R.drawable.class));
+            int resId = R.drawable.class.getField(photoName).getInt(R.drawable.class);
+            BitmapWorkerTask task = new BitmapWorkerTask(mainImage);
+            task.execute(resId);
             currentPhoto = photoName;
         }catch (NoSuchFieldException e) {
             e.printStackTrace();
@@ -67,26 +98,5 @@ public class MainActivity extends Activity {
 
     }
 
-    private void loadPhotoFromResource(int resourceId) {
-        BitmapFactory.Options options = new BitmapFactory.Options();
-        options.inJustDecodeBounds = true;
-        BitmapFactory.decodeResource(getResources(), resourceId, options);
 
-        int destHeight = mainImage.getHeight();
-        int destWidth = mainImage.getWidth();
-        int sampleSize = 1;
-
-        if ( options.outHeight > destHeight || options.outWidth < destWidth ) {
-            int heightRatio = Math.round((float) options.outHeight / (float) destHeight);
-            int widthRatio = Math.round((float) options.outWidth / (float) destWidth);
-
-            sampleSize = heightRatio < widthRatio ? heightRatio : widthRatio;
-        }
-        options.inSampleSize = sampleSize;
-        options.inJustDecodeBounds = false;
-
-        Bitmap bm =  BitmapFactory.decodeResource(getResources(), resourceId, options);
-        mainImage.setImageBitmap(bm);
-    }
-    
 }
