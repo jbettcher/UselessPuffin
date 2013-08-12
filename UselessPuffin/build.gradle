@@ -19,13 +19,11 @@ android {
     def appCodeVersion = 1
     compileSdkVersion 18
     buildToolsVersion "18.0.1"
-    // Default build code for main app - screen sizes 3 & 4
 
     defaultConfig {
         versionName "1.0.0"
         minSdkVersion 7
         targetSdkVersion 16
-        versionCode versionCodeBuilder(minSdkVersion, 34, appCodeVersion)
     }
 
     signingConfigs {
@@ -48,17 +46,13 @@ android {
 
     productFlavors {
         'default' {
+            versionCode versionCodeBuilder(defaultConfig.minSdkVersion, 24, appCodeVersion)
         }
-        'lite' {
-            versionCode versionCodeBuilder(defaultConfig.minSdkVersion, 12, appCodeVersion)
-        }
-    }
-    sourceSets {
-        android.sourceSets.lite {
-            //res.srcDirs = ['src/main/res_lite']
-        }
-    }
 
+        'lite' {
+            versionCode versionCodeBuilder(defaultConfig.minSdkVersion, 11, appCodeVersion)
+        }
+    }
 }
 
 
@@ -180,12 +174,13 @@ def restoreResourceExclusions(String flavor) {
     restoreResources largeResources
 }
 
+project.ext.liteSupportedScreenMap = [ 'smallScreens' : true, 'normalScreens': false, 'largeScreens' : false, 'xlargeScreens': false ]
 // Pretty hacky.  Modifies the Lite version manifest to target specific screens rather than all
 // screens as in the main manifest.  If Gradle would do more of a manifest merge on supports-screen
 // this wouldn't be necessary.  See groups link in the caller
 def setLiteManifestTargets(manifestFile) {
-    ['largeScreens', 'xlargeScreens'].each { scr ->
-        runCommand([ 'sed', '-i', '', "s/$scr=\"true\"/$scr=\"false\"/g", manifestFile ])
+    liteSupportedScreenMap.each { key, enabled ->
+        runCommand([ 'sed', '-i', '', '-E', "s/$key=\"[^\"]+\"/$key=\"$enabled\"/g", manifestFile ])
     }
 }
 
