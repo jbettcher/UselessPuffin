@@ -1,15 +1,17 @@
 package com.android4all.uselesspuffin;
 
+import android.support.v4.app.FragmentManager;
 import android.content.res.Configuration;
 import android.os.Bundle;
-import android.app.Activity;
+import android.support.v4.app.FragmentActivity;
 import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageView;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 
-public class MainActivity extends Activity {
+public class MainActivity extends FragmentActivity {
     private final ArrayList<String> photos = new ArrayList<String>();
     private ImageView mainImage;
     private String currentPhoto;
@@ -73,6 +75,21 @@ public class MainActivity extends Activity {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
         return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.action_info:
+                // Could show as a dialog or full screen - just dialog for simplicity now
+                FragmentManager fragMgr = getSupportFragmentManager();
+                InfoDialogFragment frag = new InfoDialogFragment();
+                frag.show(fragMgr, "dialog");
+                break;
+            default:
+                break;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override

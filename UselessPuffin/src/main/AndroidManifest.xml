@@ -8,11 +8,11 @@
         android:minSdkVersion="7"
         android:targetSdkVersion="16" />
 
-    <supports-screens
-            android:smallScreens="false"
-            android:normalScreens="true"
-            android:largeScreens="true"
-            android:xlargeScreens="true" />
+
+    <!-- leave this empty for now - gradle will fill in with the appropriate compatible screens -->
+    <compatible-screens>
+
+    </compatible-screens>
 
     <application
         android:allowBackup="true"

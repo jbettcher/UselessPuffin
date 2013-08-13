@@ -13,15 +13,30 @@ repositories {
 }
 
 def versionCodeBuilder = { api, screen, app -> Integer.parseInt(sprintf("%02d%02d%02d", [ api, screen, app ])) }
+// set some basic project properties for use later
+project.ext.sourcePhotosDir = file('assets/source_photos')
+project.ext.largeResources = [ 'hdpi', 'xhdpi', 'xxhdpi' ]
+project.ext.screenMatrix   = [
+    'lite' : [
+        'small' : [ 'ldpi', 'mdpi', 'hdpi', 'xhdpi' ],
+        'normal': [ 'ldpi', 'mdpi' ]
+    ],
+    'default': [
+        'normal': [ 'hdpi', 'xhdpi' ],
+        'large' : [ 'ldpi', 'mdpi', 'hdpi', 'xhdpi' ],
+        'xlarge': [ 'ldpi', 'mdpi', 'hdpi', 'xhdpi' ]
+    ]
+]
+
 
 android {
     // Increment this to create a new build version. This overrides the value in AndroidManifest.xml
-    def appCodeVersion = 1
+    def appCodeVersion = 3
     compileSdkVersion 18
     buildToolsVersion "18.0.1"
 
     defaultConfig {
-        versionName "1.0.0"
+        versionName "1.0.2"
         minSdkVersion 7
         targetSdkVersion 16
     }
@@ -46,11 +61,13 @@ android {
 
     productFlavors {
         'default' {
-            versionCode versionCodeBuilder(defaultConfig.minSdkVersion, 24, appCodeVersion)
+            minSdkVersion 7
+            versionCode versionCodeBuilder(8, 25, appCodeVersion)
         }
 
         'lite' {
-            versionCode versionCodeBuilder(defaultConfig.minSdkVersion, 11, appCodeVersion)
+            minSdkVersion 7
+            versionCode versionCodeBuilder(8, 24, appCodeVersion)
         }
     }
 }
@@ -60,24 +77,16 @@ android.applicationVariants.all { variant ->
     File out = variant.outputFile
     variant.outputFile = file(out.toString().replace('.apk', ".${android.defaultConfig.versionName}.apk"))
 
-    // Install custom Manifest processing hooks for setting the supports-screen blocks for the lite manifest.
-    // This is a work-around for broken/missing merge functionality with the manifests in the source sets
+    // Install custom Manifest processing hooks for setting the expansions for the compatible-screens blocks.
     // See https://groups.google.com/forum/#!msg/adt-dev/8igxEyihIlc/144LcUZ7QW4J
-    if ( variant.name =~ /^Lite.*/ ) {
-        variant.processManifest.doLast {
-            def manifestFile = "${buildDir}/manifests/${variant.dirName}/AndroidManifest.xml"
-            // hackity-hack. Would be nice to do this more programmatically
-            setLiteManifestTargets manifestFile
-        }
+    variant.processManifest.doLast {
+        def manifestFile = "${buildDir}/manifests/${variant.dirName}/AndroidManifest.xml"
+        addCompatibleScreens variant.productFlavors[0].name, manifestFile
     }
 }
 
-// set some basic project properties for use later
-project.ext.sourcePhotosDir = file('assets/source_photos')
-project.ext.largeResources = [ 'hdpi', 'xhdpi', 'xxhdpi' ]
-
 dependencies {
-    compile 'com.android.support:support-v4:13.0.+'
+    compile 'com.android.support:support-v4:18.0.+'
 }
 
 task resizePhotos {
@@ -138,8 +147,8 @@ def stripResources(List<String> res) {
 def restoreResources(List<String> res) {
     res.each { String type ->
         File dir = project.file("src/main/res/drawable-$type")
-        runCommand "git reset HEAD $dir"
-        runCommand "git checkout $dir"
+        runCommand(['git', 'reset', 'HEAD', '--', dir])
+        runCommand(['git', 'checkout', '--', dir])
     }
 }
 
@@ -169,18 +178,35 @@ def prepareResourceExclusions(String flavor) {
     }
 }
 
+def String buildScreenMatrix(String flavor) {
+    Map values = screenMatrix[flavor]
+    if ( values != null ) {
+        def supports = []
+        values.each { size, densities ->
+            densities.each { density ->
+                supports << "<screen android:screenSize=\"$size\" android:screenDensity=\"$density\" />"
+            }
+        }
+        return supports.join("\n")
+    }
+    else {
+        return ""
+    }
+}
+
 // cleanup after the merge resources step
 def restoreResourceExclusions(String flavor) {
     restoreResources largeResources
 }
 
-project.ext.liteSupportedScreenMap = [ 'smallScreens' : true, 'normalScreens': false, 'largeScreens' : false, 'xlargeScreens': false ]
-// Pretty hacky.  Modifies the Lite version manifest to target specific screens rather than all
-// screens as in the main manifest.  If Gradle would do more of a manifest merge on supports-screen
-// this wouldn't be necessary.  See groups link in the caller
-def setLiteManifestTargets(manifestFile) {
-    liteSupportedScreenMap.each { key, enabled ->
-        runCommand([ 'sed', '-i', '', '-E', "s/$key=\"[^\"]+\"/$key=\"$enabled\"/g", manifestFile ])
+
+def addCompatibleScreens(flavor, manifestFile) {
+    File f = new File(manifestFile)
+    String manifest = f.text
+    String matrix = "<compatible-screens>\n" + buildScreenMatrix(flavor) + "\n<"
+    manifest = manifest.replaceFirst(/(?ms)<compatible-screens>[^<]*</, matrix)
+    f.withWriter { writer ->
+        writer << manifest
     }
 }
 
